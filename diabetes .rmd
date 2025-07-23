@@ -1,0 +1,398 @@
+---
+title: "Diabetes"
+author: "Ayaan abdullahi"
+date: "2024-03-31"
+output: html_document
+---
+
+```{r}
+
+# Load necessary libraries
+library(readr)
+
+# Load the dataset
+data <- read_csv("diabetes.csv")
+data
+
+
+
+
+```
+
+```{r}
+head(data)
+
+```
+
+
+```{r}
+
+summary(data)
+
+```
+
+
+```{r}
+
+library(dplyr)
+
+# Summarize the number of missing values in each column
+missing_values <- sapply(data, function(x) sum(is.na(x)))
+
+# Alternatively, using dplyr for a more readable format
+missing_values_df <- data %>%
+  summarise_all(~sum(is.na(.)))
+
+# Print the results
+print(missing_values)
+print(missing_values_df)
+
+
+```
+```{r}
+# Checking for NA or NULL values
+sum(is.na(data))
+sum(is.null(data))
+
+# Checking for empty strings
+sum(data == "")
+
+
+```
+```{r}
+# Checking for placeholder values such as zeros in fields where zero is not plausible
+cols_to_check <- c("BMI", "BloodPressure", "Glucose", "SkinThickness", "Insulin")
+sapply(data[, cols_to_check], function(x) sum(x == 0))
+
+
+
+```
+```{r}
+install.packages("caret")
+
+install.packages("RANN")
+
+install.packages("imputeMissings")
+
+
+
+```
+
+```{r}
+library(caret) # for KNN imputation
+
+# Replace zeros with NA for columns where zero is not plausible
+cols_to_impute <- c("BMI", "BloodPressure", "Glucose", "SkinThickness", "Insulin")
+data[cols_to_impute] <- sapply(data[cols_to_impute], function(x) replace(x, x == 0, NA))
+
+```
+
+```{r}
+# Median Imputation for columns with fewer zeros
+median_values <- apply(data[cols_to_impute], 2, median, na.rm = TRUE)
+for (col in c("BMI", "BloodPressure", "Glucose")) {
+  data[[col]][is.na(data[[col]])] <- median_values[col]
+}
+
+
+```
+
+```{r}
+# Check how many rows will be removed
+# Checking for placeholder values such as zeros in fields where zero is not plausible
+cols_to_check <- c("BMI", "BloodPressure", "Glucose", "SkinThickness", "Insulin")
+sapply(data[, cols_to_check], function(x) sum(x == 0))
+
+```
+```{r}
+library(mice)
+# Replace zeros with NA for columns where zero is not plausible
+cols_to_impute <- c("SkinThickness", "Insulin")
+data[cols_to_impute] <- lapply(data[cols_to_impute], function(x) ifelse(x == 0, NA, x))
+
+# Setting up the mice imputation method
+# Let's use the method 'pmm' which is predictive mean matching, a robust method
+# that can be used as an alternative to knn
+mice_mod <- mice(data[, cols_to_impute], method='pmm', m=5, maxit=50, seed=500)
+
+# Completing the data with the imputed values
+data_imputed <- complete(mice_mod)
+
+# Replace the original columns with the imputed data
+data[, cols_to_impute] <- data_imputed[, cols_to_impute]
+```
+
+
+```{r}
+# Check how many rows will be removed
+# Checking for placeholder values such as zeros in fields where zero is not plausible
+cols_to_check <- c("BMI", "BloodPressure", "Glucose", "SkinThickness", "Insulin")
+sapply(data[, cols_to_check], function(x) sum(x == 0))
+```
+```{r}
+
+data
+
+
+
+
+```
+
+
+```{r}
+library(ggplot2)
+ggplot(data, aes(x=Glucose, fill=factor(Outcome))) +
+  geom_histogram(alpha=0.6, position="identity", bins=30) +
+  scale_fill_manual(values=c("#FF9999", "#9999FF"), labels=c("Non-diabetic", "Diabetic")) +
+  labs(title="Glucose Level Distribution by Outcome",
+       x="Glucose Level",
+       y="Count",
+       fill="Outcome") +
+  theme_minimal()
+
+
+
+
+
+```
+
+
+```{r}
+ggplot(data, aes(x=BMI, fill=factor(Outcome))) +
+  geom_density(alpha=0.6) +
+  scale_fill_manual(values=c("#FF9999", "#9999FF"), labels=c("Non-diabetic", "Diabetic")) +
+  labs(title="BMI Distribution by Outcome",
+       x="BMI",
+       y="Density",
+       fill="Outcome") +
+  theme_minimal()
+
+
+
+
+
+```
+
+
+```{r}
+ggplot(data, aes(x=Age, y=Glucose, color=factor(Outcome))) +
+  geom_point(alpha=0.6) +
+  scale_color_manual(values=c("#FF9999", "#9999FF"), labels=c("Non-diabetic", "Diabetic")) +
+  labs(title="Age vs. Glucose Level by Outcome",
+       x="Age",
+       y="Glucose Level",
+       color="Outcome") +
+  theme_minimal()
+
+
+
+
+
+```
+
+```{r}
+
+# Exploratory Data Analysis (EDA)
+# Visualize the distribution of continuous variables
+continuous_vars <- c("Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI")
+par(mfrow=c(3, 2))
+for (var in continuous_vars) {
+  hist(data[[var]], main = var, xlab = var)
+}
+
+
+```
+```{r}
+
+# Visualize the distribution of categorical variables
+barplot(table(data$Pregnancies), main = "Pregnancies Distribution", xlab = "Number of Pregnancies", ylab = "Frequency")
+barplot(table(data$Outcome), main = "Outcome Distribution", xlab = "Diabetes Outcome", ylab = "Frequency")
+
+
+
+
+```
+
+
+
+
+
+
+```{r}
+install.packages("randomForest")
+
+# Feature Importance
+# Use Random Forest for feature importance
+library(randomForest)
+
+# Train Random Forest model
+rf_model <- randomForest(Outcome ~ ., data = data)
+
+# Visualize feature importance
+varImpPlot(rf_model, main = "Feature Importance Plot")
+
+
+
+
+
+```
+
+
+```{r}
+
+# Comparative Analysis
+# Compare distribution of variables between diabetic and non-diabetic individuals
+par(mfrow=c(3, 2))
+for (var in continuous_vars) {
+  boxplot(data[[var]] ~ data$Outcome, main = paste("Boxplot of", var, "by Outcome"), xlab = "Outcome", ylab = var)
+}
+
+# Bar plot of age distribution by Outcome
+barplot(table(data$Age, data$Outcome), 
+        beside = TRUE, 
+        main = "Age Distribution by Outcome", 
+        xlab = "Age", 
+        ylab = "Frequency",
+        legend = c("Non-Diabetic", "Diabetic"))
+
+
+```
+
+
+```{r}
+
+# Age Analysis
+# Visualize age distribution for diabetic and non-diabetic individuals
+hist(data$Age[data$Outcome == 0], 
+     main = "Age Distribution for Non-Diabetic Individuals", 
+     xlab = "Age", 
+     ylim = c(0, 100),
+     col = "blue")
+legend("topright", 
+       legend = c("Non-Diabetic", "Diabetic"), 
+       fill = c("blue", "red"))
+
+
+
+
+
+
+```
+
+```{r}
+hist(data$Age[data$Outcome == 1], 
+     main = "Age Distribution for Diabetic Individuals", 
+     xlab = "Age", 
+     ylim = c(0, 100),
+     col = "red")
+legend("topright", 
+       legend = c("Non-Diabetic", "Diabetic"), 
+       fill = c("blue", "red"))
+
+```
+
+
+
+```{r}
+# Risk Factor Relationships
+# Visualize relationships between pairs of variables
+pairs(data[, -c(1, 9)], 
+      main = "Pairwise Relationships between Variables",
+      col = data$Outcome + 1)  # Color points by Outcome
+
+
+```
+
+```{r}
+# install.packages("GGally")
+library(ggplot2)
+library(GGally)
+
+# Select only the variables of interest for the pairs plot
+selected_data <- data[, c("Glucose", "BMI", "Age", "Outcome")]
+
+# Convert Outcome to a factor for color coding in the plot
+selected_data$Outcome <- factor(selected_data$Outcome, labels = c("Non-diabetic", "Diabetic"))
+
+# Generate the pairs plot
+ggpairs(selected_data,
+        aes(color = Outcome, alpha = 0.4),
+        lower = list(continuous = "points"),
+        diag = list(continuous = "barDiag"),
+        upper = list(continuous = "cor"),
+        title = "Pairs Plot of Diabetes Dataset by Outcome"
+) + theme(legend.position = "bottom")
+
+
+
+```
+
+```{r}
+library(ggplot2)
+
+# Assuming 'Outcome' is the variable denoting if the individual has diabetes (1) or not (0),
+# and 'Age' is the variable denoting the age of the individuals.
+
+# Create a new column 'Diabetes_Status' for a more descriptive label on the plot
+data$Diabetes_Status <- ifelse(data$Outcome == 1, "Diabetic", "Non-diabetic")
+
+# Generate a density plot with age on the x-axis and fill based on Diabetes_Status
+ggplot(data, aes(x = Age, fill = Diabetes_Status)) +
+  geom_density(alpha = 0.7) +
+  scale_fill_manual(values = c("Non-diabetic" = "#1f77b4", "Diabetic" = "#ff7f0e")) +
+  labs(title = "Age Distribution by Diabetes Status",
+       x = "Age",
+       y = "Density",
+       fill = "Diabetes Status") +
+  theme_minimal()
+
+
+
+
+
+```
+
+```{r}
+# Age Analysis
+# Visualize age distribution for diabetic and non-diabetic individuals
+hist(data$Age[data$Outcome == 0], 
+     main = "Age Distribution for Non-Diabetic Individuals", 
+     xlab = "Age", 
+     ylim = c(0, 100),
+     col = "blue")
+hist(data$Age[data$Outcome == 1], 
+     main = "Age Distribution for Diabetic Individuals", 
+     xlab = "Age", 
+     ylim = c(0, 100),
+     col = "red")
+legend("topright", 
+       legend = c("Non-Diabetic", "Diabetic"), 
+       fill = c("blue", "red"))
+
+
+
+
+```
+
+
+
+```{r}
+# Bin ages into categories
+data$Age_Group <- cut(data$Age, breaks = seq(20, 90, by = 10), right = FALSE, labels = c('20s', '30s', '40s', '50s', '60s', '70','80+'))
+
+# Generate a bar plot with age groups on the x-axis and fill based on Diabetes_Status
+ggplot(data, aes(x = Age_Group, fill = Diabetes_Status)) +
+  geom_bar(position = "fill", alpha = 0.7) +
+  scale_fill_manual(values = c("Non-diabetic" = "#1f77b4", "Diabetic" = "#ff7f0e")) +
+  labs(title = "Proportion of Diabetes Status by Age Group",
+       x = "Age Group",
+       y = "Proportion",
+       fill = "Diabetes Status") +
+  theme_minimal()
+
+
+
+
+
+
+```
